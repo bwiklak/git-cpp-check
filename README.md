@@ -1,7 +1,7 @@
 git-cpp-check
 =============
 
-Combines [git-clang-format](https://llvm.org/svn/llvm-project/cfe/trunk/tools/clang-format/git-clang-format) (found i.e. in [LLVM package](http://llvm.org/releases/download.html)) and [cpplint](http://google-styleguide.googlecode.com/svn/trunk/cpplint/cpplint.py) to check you code before commit.
+Combines [git-clang-format](https://llvm.org/svn/llvm-project/cfe/trunk/tools/clang-format/git-clang-format) (found e.g. in [LLVM package](http://llvm.org/releases/download.html)) and [cpplint](http://google-styleguide.googlecode.com/svn/trunk/cpplint/cpplint.py) to check you code before commit.
 
 Usage
 -----
@@ -12,7 +12,7 @@ Usage
 
 How does it work?
 -----------------
-git-cpp-check works on files added to you git commit. Cpplint reads the whole file but only lines changed by commit are taken under account. This means that if there are i.e. linter errors in other parts of your code untouched by commit no error will be reported[1].
+git-cpp-check works on files added to you git commit. Cpplint reads the whole file but only lines changed by commit are taken under account. This means that if there are e.g. linter errors in other parts of your code untouched by commit no error will be reported[1].
 
 git-clang-format runs first, it there are some changes, diff is displayed and commit is stopped. Changes are staged, if you accept them you can simply run `commit -a` again. 
 When no formatting errors are found cpplit is used.
