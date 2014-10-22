@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+import codecs
+import cpplint
+import imp
+import sys
+import os
+
+gcf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'git-clang-format')
+gcf = imp.load_source('*', gcf_path)
+
+# Monkeypath cpplint error function
+_cpplint_file_errors = []
+def CpplintError(filename, linenum, category, confidence, message):
+  if cpplint._ShouldPrintError(category, confidence, linenum):
+    _cpplint_file_errors.append((linenum, message))
+
+cpplint.__dict__['Error'] = CpplintError
+
+
+# Change stderr to write with replacement characters so we don't die
+# if we try to print something containing non-ASCII characters.
+sys.stderr = codecs.StreamReaderWriter(sys.stderr,
+                                       codecs.getreader('utf8'),
+                                       codecs.getwriter('utf8'),
+                                       'replace')
+
+
+default_extensions = ','.join([
+  # From clang/lib/Frontend/FrontendOptions.cpp, all lower case
+  'c', 'h',  # C
+  'm',  # ObjC
+  'mm',  # ObjC++
+  'cc', 'cp', 'cpp', 'c++', 'cxx', 'hpp',  # C++
+  # Other languages that clang-format supports
+  #'proto', 'protodevel',  # Protocol Buffers
+  #'js',  # JavaScript
+  ])
+
+config = gcf.load_git_config()
+clangformat_binary = config.get('clangformat.binary', 'clang-format')
+commit, files = (config.get('clangformat.commit', 'HEAD'), [])
+# Lines changed in this git commit
+changed_lines = gcf.compute_diff_and_extract_lines(commit, files)
+gcf.filter_by_extension(changed_lines, default_extensions.lower().split(','))
+
+# The computed diff outputs absolute paths, so we must cd before accessing
+# those files.
+gcf.cd_to_toplevel()
+old_tree = gcf.create_tree_from_workdir(changed_lines)
+new_tree = gcf.run_clang_format_and_save_to_tree(changed_lines,
+                                                 binary=clangformat_binary,
+                                                 style='Chromium')
+
+# Files changed by clang-format
+if old_tree == new_tree:
+  print 'No files changed'
+else:
+  changed_files = gcf.apply_changes(old_tree, new_tree)
+
+  if len(changed_files) > 0:
+    sys.stderr.write('changed files:')
+    for filename in changed_files:
+      sys.stderr.write('    %s' % filename)
+
+    sys.stderr.write('Commit aborded due to format errors.\n')
+    gcf.print_diff(old_tree, new_tree)
+    sys.exit(1)
+
+# Clacg format is clean make cpplint on git changes files
+cpplint_error_count = 0
+
+for filename, ranges in changed_lines.iteritems():
+  _cpplint_file_errors = []
+  cpplint.ProcessFile(filename, 0)
+  for linenum, message in _cpplint_file_errors:
+    if any((linenum in r for r in ranges)):
+      cpplint_error_count += 1
+      sys.stderr.write('%s:%s:  %s\n' % (filename, linenum, message))
+
+if cpplint_error_count > 0:
+  sys.stderr.write('Commit aborded due to linter errors.\n')
+  sys.exit(2)
+
+
+
+
+  if _ShouldPrintError(category, confidence, linenum):
+    _cpplint_state.IncrementErrorCount(category)
+    if filename in _cpplint_state.errors_by_files:
+      _cpplint_state.errors_by_files[filename].append((linenum, message))
+    else:
+      _cpplint_state.errors_by_files[filename] = [(linenum, message), ]
+    if _cpplint_state.output_format == 'vs7':
+      sys.stderr.write('%s(%s):  %s  [%s] [%d]\n' % (
+          filename, linenum, message, category, confidence))
+    elif _cpplint_state.output_format == 'eclipse':
+      sys.stderr.write('%s:%s: warning: %s  [%s] [%d]\n' % (
+          filename, linenum, message, category, confidence))
+    else:
+      sys.stderr.write('%s:%s:  %s  [%s] [%d]\n' % (
+          filename, linenum, message, category, confidence))
