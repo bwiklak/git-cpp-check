@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import codecs
-import cpplint
+import os
 import imp
 import sys
-import os
 
+import cpplint
 gcf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'git-clang-format')
 gcf = imp.load_source('*', gcf_path)
 
@@ -32,8 +32,8 @@ default_extensions = ','.join([
   'mm',  # ObjC++
   'cc', 'cp', 'cpp', 'c++', 'cxx', 'hpp',  # C++
   # Other languages that clang-format supports
-  #'proto', 'protodevel',  # Protocol Buffers
-  #'js',  # JavaScript
+  'proto', 'protodevel',  # Protocol Buffers
+  'js',  # JavaScript
   ])
 
 config = gcf.load_git_config()
@@ -51,51 +51,29 @@ new_tree = gcf.run_clang_format_and_save_to_tree(changed_lines,
                                                  binary=clangformat_binary,
                                                  style='Chromium')
 
-# Files changed by clang-format
-if old_tree == new_tree:
-  print 'No files changed'
-else:
+sys.stderr.write('Clang-format:\n')
+clang_format_made_changes = False
+if old_tree != new_tree:
   changed_files = gcf.apply_changes(old_tree, new_tree)
-
   if len(changed_files) > 0:
-    sys.stderr.write('changed files:')
-    for filename in changed_files:
-      sys.stderr.write('    %s' % filename)
-
-    sys.stderr.write('Commit aborded due to format errors.\n')
+    clang_format_made_changes = True
     gcf.print_diff(old_tree, new_tree)
-    sys.exit(1)
 
-# Clacg format is clean make cpplint on git changes files
+sys.stderr.write('\nCpplint:\n')
 cpplint_error_count = 0
-
 for filename, ranges in changed_lines.iteritems():
   _cpplint_file_errors = []
+  save_stderr = sys.stderr
+  sys.stderr = open(os.devnull, "w")
   cpplint.ProcessFile(filename, 0)
+  sys.stderr = save_stderr
   for linenum, message in _cpplint_file_errors:
     if any((linenum in r for r in ranges)):
       cpplint_error_count += 1
       sys.stderr.write('%s:%s:  %s\n' % (filename, linenum, message))
 
 if cpplint_error_count > 0:
-  sys.stderr.write('Commit aborded due to linter errors.\n')
   sys.exit(2)
 
-
-
-
-  if _ShouldPrintError(category, confidence, linenum):
-    _cpplint_state.IncrementErrorCount(category)
-    if filename in _cpplint_state.errors_by_files:
-      _cpplint_state.errors_by_files[filename].append((linenum, message))
-    else:
-      _cpplint_state.errors_by_files[filename] = [(linenum, message), ]
-    if _cpplint_state.output_format == 'vs7':
-      sys.stderr.write('%s(%s):  %s  [%s] [%d]\n' % (
-          filename, linenum, message, category, confidence))
-    elif _cpplint_state.output_format == 'eclipse':
-      sys.stderr.write('%s:%s: warning: %s  [%s] [%d]\n' % (
-          filename, linenum, message, category, confidence))
-    else:
-      sys.stderr.write('%s:%s:  %s  [%s] [%d]\n' % (
-          filename, linenum, message, category, confidence))
+if clang_format_made_changes:
+  sys.exit(1)
