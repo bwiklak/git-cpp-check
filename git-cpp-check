@@ -69,7 +69,7 @@ for filename, ranges in changed_lines.iteritems():
   sys.stderr = save_stderr
   for linenum, message in _cpplint_file_errors:
     # Sometimes cpplint reports linenum=0 instead of the acutal line.
-    if not linenum or any((linenum in range(r.start, r.start + r.count) for r in ranges)):
+    if any((r.start <= linenum <= r.start + r.count for r in ranges)) or linenum == 0:
       cpplint_error_count += 1
       sys.stderr.write('%s:%s:  %s\n' % (filename, linenum, message))
 
