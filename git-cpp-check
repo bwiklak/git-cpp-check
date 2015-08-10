@@ -1,14 +1,27 @@
 #!/usr/bin/env python
+import argparse
 import codecs
 import os
 import imp
 import sys
 
-import cpplint
-gcf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'git-clang-format')
-gcf = imp.load_source('*', gcf_path)
+p = argparse.ArgumentParser()
+p.add_argument('--cpplint', help='path to cpplint.py'),
+p.add_argument('--git-clang-format', help='path to git-clang-format'),
+opts = p.parse_args(sys.argv[1:])
 
-# Monkeypath cpplint error function
+if opts.cpplint:
+  cpplint = imp.load_source('*', opts.cpplint)
+else:
+  import cpplint
+
+if opts.git_clang_format:
+  gcf = imp.load_source('*', opts.git_clang_format)
+else:
+  gcf = imp.load_source('*', os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                          'git-clang-format'))
+
+# Monkeypatch cpplint error function
 _cpplint_file_errors = []
 def CpplintError(filename, linenum, category, confidence, message):
   if cpplint._ShouldPrintError(category, confidence, linenum):
